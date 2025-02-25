@@ -9,7 +9,7 @@ from torch.nn import functional as F
 batch_size = 64
 block_size = 256
 max_iters = 2500
-eval_interval = 100
+eval_interval = 500
 learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using {device}')
@@ -20,6 +20,16 @@ n_layer = 6
 dropout = 0.2
 
 torch.manual_seed(1337)
+# load text data
+with open('input.txt','r',encoding='utf-8') as f:
+    text = f.read()
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = {ch: i for i, ch in enumerate(chars)}
+itos = {i: ch for i, ch in enumerate(chars)}
+encode = lambda s: [stoi[ch] for ch in s]
+decode = lambda l: ''.join([itos[i] for i in l])
 
 def get_batch(split):
         # generate a small batch of data of inputs x and targets y
@@ -147,6 +157,7 @@ class BigramLanguageModel(nn.Module):
         return logits,loss
 
     def generate(self,prompt, max_new_tokens=500):
+        self.eval()  # Ensure model is in evaluation mode
         # idx is (B,T) array of indices in the current context
         idx = torch.tensor([encode(prompt)], dtype=torch.long, device=device)
         for _ in range(max_new_tokens):
@@ -173,16 +184,7 @@ if os.path.exists("bigram_model.pth"):
 else:
     print("Model not found. Training the model...")
 
-    # load text data
-    with open('input.txt','r',encoding='utf-8') as f:
-        text = f.read()
-
-    chars = sorted(list(set(text)))
-    vocab_size = len(chars)
-    stoi = {ch: i for i, ch in enumerate(chars)}
-    itos = {i: ch for i, ch in enumerate(chars)}
-    encode = lambda s: [stoi[ch] for ch in s]
-    decode = lambda l: ''.join([itos[i] for i in l])
+    
 
 
 
@@ -224,5 +226,11 @@ while True:
     prompt = input("Enter a prompt (or type 'exit' to quit): ")
     if prompt.lower() == "exit":
         break
+    
+
     generated_text = model.generate(prompt, max_new_tokens=500)
-    print("\nGenerated Text:\n", generated_text)
+
+    # Convert tensor back to text
+    generated_text_decoded = decode(generated_text[0].cpu().numpy())
+
+    print("\nGenerated Text:\n", generated_text_decoded)
